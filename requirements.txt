@@ -1,0 +1,31 @@
+flask
+torch
+transformers
+datasets
+rouge_score
+nltk
+pandas
+matplotlib
+seaborn
+sentencepiece
+protobuf
+sacrebleu
+scikit-learn
+# PDF & DOC support
+PyMuPDF
+python-docx
+# URL scraping
+requests
+beautifulsoup4
+# Translation / multi-language
+deep-translator
+langdetect
+# TTS / Voice
+gTTS
+SpeechRecognition
+# History persistence
+flask-sqlalchemy
+# Extra NLP
+sumy
+networkx
+numpy

@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SummarAI — Advanced Text Summarization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────────── */
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0d0f14;
+    --surface:#13161e;
+    --card:#1a1d27;
+    --border:#252836;
+    --accent:#7c5cfc;
+    --accent2:#e05cfc;
+    --accent3:#5cfce8;
+    --text:#e8eaf0;
+    --muted:#7880a0;
+    --success:#4ade80;
+    --warn:#fbbf24;
+    --danger:#f87171;
+    --radius:14px;
+    --shadow:0 8px 40px rgba(0,0,0,.5);
+  }
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'DM Sans',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+
+  /* ── Animated background blobs ───────────────────────────────── */
+  .bg-blobs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.18;animation:float 12s ease-in-out infinite}
+  .blob-1{width:500px;height:500px;background:var(--accent);top:-100px;left:-100px;animation-delay:0s}
+  .blob-2{width:400px;height:400px;background:var(--accent2);bottom:-80px;right:-80px;animation-delay:-5s}
+  .blob-3{width:300px;height:300px;background:var(--accent3);top:50%;left:50%;transform:translate(-50%,-50%);animation-delay:-9s}
+  @keyframes float{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-40px) scale(1.05)}}
+
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .wrapper{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px}
+
+  /* ── Header ──────────────────────────────────────────────────── */
+  header{
+    padding:28px 0 20px;
+    display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .logo{
+    font-family:'Syne',sans-serif;
+    font-size:1.7rem;font-weight:800;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+  }
+  .logo span{color:var(--accent3);-webkit-text-fill-color:var(--accent3)}
+  .tagline{font-size:.8rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+
+  /* ── Tabs ────────────────────────────────────────────────────── */
+  .tabs{
+    display:flex;gap:4px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;padding:5px;
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    font-family:'Syne',sans-serif;font-size:.8rem;font-weight:600;
+    padding:8px 18px;border-radius:8px;border:none;cursor:pointer;
+    background:transparent;color:var(--muted);
+    transition:all .2s;letter-spacing:.04em;white-space:nowrap;
+  }
+  .tab-btn.active,.tab-btn:hover{background:var(--accent);color:#fff}
+  .tab-btn.active{box-shadow:0 0 14px rgba(124,92,252,.4)}
+  nav{padding:20px 0 10px}
+
+  /* ── Panels ──────────────────────────────────────────────────── */
+  .panel{display:none;animation:fadeIn .35s ease}
+  .panel.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* ── Cards ───────────────────────────────────────────────────── */
+  .card{
+    background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:28px;margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  .card-title{
+    font-family:'Syne',sans-serif;font-size:1rem;font-weight:700;
+    margin-bottom:18px;color:var(--text);display:flex;align-items:center;gap:8px;
+  }
+  .card-title .icon{font-size:1.2rem}
+
+  /* ── Controls row ────────────────────────────────────────────── */
+  .controls-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+    gap:14px;margin-bottom:18px;
+  }
+  label.ctrl-label{
+    display:block;font-size:.75rem;color:var(--muted);
+    margin-bottom:5px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;
+  }
+  select,input[type=number],input[type=text],input[type=url]{
+    width:100%;padding:10px 14px;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;
+    font-size:.9rem;outline:none;transition:border .2s;
+  }
+  select:focus,input:focus{border-color:var(--accent)}
+
+  /* ── Textarea ────────────────────────────────────────────────── */
+  textarea{
+    width:100%;min-height:160px;padding:14px;resize:vertical;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:9px;color:var(--text);font-family:'DM Sans',sans-serif;
+    font-size:.9rem;outline:none;transition:border .2s;line-height:1.6;
+  }
+  textarea:focus{border-color:var(--accent)}
+
+  /* ── Buttons ─────────────────────────────────────────────────── */
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:11px 26px;border-radius:9px;border:none;cursor:pointer;
+    font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;
+    letter-spacing:.04em;transition:all .2s;
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;box-shadow:0 4px 20px rgba(124,92,252,.35);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(124,92,252,.5)}
+  .btn-secondary{background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+  .btn-secondary:hover{border-color:var(--accent);color:var(--text)}
+  .btn-danger{background:var(--danger);color:#fff}
+  .btn-sm{padding:7px 16px;font-size:.8rem}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+
+  /* ── Voice recording ─────────────────────────────────────────── */
+  #voice-btn{
+    width:70px;height:70px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none;cursor:pointer;font-size:1.8rem;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .2s;box-shadow:0 4px 20px rgba(124,92,252,.4);
+    margin:20px auto;
+  }
+  #voice-btn:hover{transform:scale(1.08)}
+  #voice-btn.recording{
+    animation:pulse-ring 1.2s ease-out infinite;
+    background:linear-gradient(135deg,var(--danger),#f05a5a);
+  }
+  @keyframes pulse-ring{
+    0%{box-shadow:0 0 0 0 rgba(248,113,113,.7)}
+    70%{box-shadow:0 0 0 20px rgba(248,113,113,0)}
+    100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}
+  }
+  .voice-status{text-align:center;color:var(--muted);font-size:.85rem;margin-bottom:12px}
+
+  /* ── Mode toggle ─────────────────────────────────────────────── */
+  .mode-toggle{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:4px;width:fit-content}
+  .mode-btn{
+    padding:8px 18px;border-radius:6px;border:none;cursor:pointer;
+    font-family:'Syne',sans-serif;font-size:.8rem;font-weight:600;
+    background:transparent;color:var(--muted);transition:all .2s;
+  }
+  .mode-btn.active{background:var(--accent);color:#fff}
+
+  /* ── File drop zone ──────────────────────────────────────────── */
+  .drop-zone{
+    border:2px dashed var(--border);border-radius:var(--radius);
+    padding:40px 20px;text-align:center;cursor:pointer;
+    transition:all .2s;margin-bottom:16px;
+  }
+  .drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(124,92,252,.05)}
+  .drop-zone .dz-icon{font-size:2.5rem;margin-bottom:10px}
+  .drop-zone p{color:var(--muted);font-size:.9rem}
+  .drop-zone input[type=file]{display:none}
+
+  /* ── Multi-doc cards ─────────────────────────────────────────── */
+  .doc-input-list{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .doc-input-item{display:flex;gap:8px;align-items:flex-start}
+  .doc-input-item textarea{flex:1;min-height:90px}
+  .doc-input-item .remove-doc{
+    background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.8rem;
+    flex-shrink:0;transition:all .2s;
+  }
+  .doc-input-item .remove-doc:hover{border-color:var(--danger);color:var(--danger)}
+
+  /* ── Output ──────────────────────────────────────────────────── */
+  .result-box{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:22px;
+    font-size:.95rem;line-height:1.75;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .highlight-list{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .highlight-item{
+    background:rgba(124,92,252,.1);border-left:3px solid var(--accent);
+    padding:10px 14px;border-radius:0 8px 8px 0;font-size:.88rem;line-height:1.6;
+    color:var(--text);
+  }
+  .badge{
+    display:inline-block;padding:3px 10px;border-radius:20px;
+    font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    margin-left:8px;
+  }
+  .badge-purple{background:rgba(124,92,252,.2);color:var(--accent)}
+  .badge-cyan{background:rgba(92,252,232,.15);color:var(--accent3)}
+  .badge-green{background:rgba(74,222,128,.15);color:var(--success)}
+
+  /* ── Metrics grid ────────────────────────────────────────────── */
+  .metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:14px}
+  .metric-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:16px 12px;text-align:center;
+  }
+  .metric-val{font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent)}
+  .metric-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+  /* ── History ─────────────────────────────────────────────────── */
+  .history-list{display:flex;flex-direction:column;gap:12px}
+  .history-item{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:18px;cursor:pointer;
+    transition:border-color .2s;
+  }
+  .history-item:hover{border-color:var(--accent)}
+  .history-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .history-ts{font-size:.75rem;color:var(--muted)}
+  .history-snippet{font-size:.85rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .history-summary{font-size:.9rem;color:var(--text);margin-top:8px;display:none;line-height:1.6}
+  .history-item.open .history-summary{display:block}
+
+  /* ── Charts ──────────────────────────────────────────────────── */
+  .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:700px){.chart-grid{grid-template-columns:1fr}}
+  .chart-img{width:100%;border-radius:10px;border:1px solid var(--border)}
+
+  /* ── Spinner ─────────────────────────────────────────────────── */
+  .spinner{
+    width:22px;height:22px;border:3px solid rgba(255,255,255,.2);
+    border-top-color:#fff;border-radius:50%;
+    animation:spin .7s linear infinite;display:none;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading .spinner{display:inline-block}
+  .loading .btn-text{display:none}
+
+  /* ── Alert ───────────────────────────────────────────────────── */
+  .alert{
+    padding:12px 18px;border-radius:9px;margin:12px 0;font-size:.88rem;
+    display:none;
+  }
+  .alert.show{display:block}
+  .alert-error{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4);color:var(--danger)}
+  .alert-success{background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.3);color:var(--success)}
+
+  /* ── Word count bar ──────────────────────────────────────────── */
+  .word-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:.82rem;color:var(--muted)}
+  .word-stats strong{color:var(--text)}
+
+  /* ── Range slider ────────────────────────────────────────────── */
+  input[type=range]{
+    width:100%;accent-color:var(--accent);
+    background:var(--surface);height:6px;border-radius:3px;
+    border:none;outline:none;cursor:pointer;
+  }
+  .range-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+
+  /* ── Sample display ──────────────────────────────────────────── */
+  .sample-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:18px;margin-bottom:12px;
+  }
+  .sample-section{margin-bottom:10px}
+  .sample-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+  .sample-text{font-size:.85rem;line-height:1.6}
+
+  /* ── Scrollbar ───────────────────────────────────────────────── */
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+  /* ── Responsive ──────────────────────────────────────────────── */
+  @media(max-width:640px){
+    .controls-grid{grid-template-columns:1fr}
+    header{flex-direction:column;gap:12px;text-align:center}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<div class="wrapper">
+
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <header>
+    <div>
+      <div class="logo">Text <span>Summarization</span></div>
+      <div class="tagline">Advanced Deep Learning Summarization</div>
+    </div>
+    <div style="text-align:right;font-size:.8rem;color:var(--muted)">
+      BART · T5 · Pegasus · Multilingual
+    </div>
+  </header>
+
+  <!-- ── Navigation ──────────────────────────────────────────────── -->
+  <nav>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('text')">✏️ Text</button>
+      <button class="tab-btn" onclick="switchTab('file')">📄 File</button>
+      <button class="tab-btn" onclick="switchTab('url')">🔗 URL</button>
+      <button class="tab-btn" onclick="switchTab('multi')">📚 Multi-Doc</button>
+      <button class="tab-btn" onclick="switchTab('voice')">🎙️ Voice</button>
+      <button class="tab-btn" onclick="switchTab('evaluate')">📊 Evaluate</button>
+      <button class="tab-btn" onclick="switchTab('history')">🕑 History</button>
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 1 — TEXT
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-text" class="panel active">
+    <div class="card">
+      <div class="card-title"><span class="icon">✏️</span> Summarize Text</div>
+
+      <!-- Mode -->
+      <div style="margin-bottom:16px">
+        <label class="ctrl-label">Summarization Mode</label>
+        <div class="mode-toggle">
+          <button class="mode-btn active" onclick="setMode('abstractive',this)">Abstractive</button>
+          <button class="mode-btn" onclick="setMode('extractive',this)">Extractive</button>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-grid">
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="txt-model">
+            <option value="bart">BART (CNN/DailyMail)</option>
+            <option value="t5">T5-Small</option>
+            <option value="pegasus">Pegasus</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Output Language</label>
+          <select id="txt-lang">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="assamese">Assamese</option>
+            <option value="bengali">Bengali</option>
+          </select>
+        </div>
+        <div id="ctrl-maxlen">
+          <label class="ctrl-label">Max Length <span id="maxlen-val">150</span> tokens</label>
+          <input type="range" id="txt-maxlen" min="50" max="400" value="150"
+                 oninput="document.getElementById('maxlen-val').textContent=this.value"/>
+        </div>
+        <div id="ctrl-minlen">
+          <label class="ctrl-label">Min Length <span id="minlen-val">40</span> tokens</label>
+          <input type="range" id="txt-minlen" min="10" max="200" value="40"
+                 oninput="document.getElementById('minlen-val').textContent=this.value"/>
+        </div>
+        <div id="ctrl-extsent" style="display:none">
+          <label class="ctrl-label">Sentences to Extract</label>
+          <input type="number" id="txt-extsent" value="5" min="1" max="20"/>
+        </div>
+      </div>
+
+      <textarea id="txt-input" placeholder="Paste or type your text here…" rows="8"></textarea>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="txt-btn" onclick="summarizeText()">
+          <span class="btn-text">✨ Summarize</span>
+          <div class="spinner"></div>
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="clearTextInput()">Clear</button>
+        <div id="txt-word-in" style="font-size:.82rem;color:var(--muted);margin-left:auto"></div>
+      </div>
+    </div>
+
+    <div id="txt-alert" class="alert alert-error"></div>
+    <div id="txt-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📝</span> Summary <span id="txt-mode-badge"></span></div>
+        <div class="result-box" id="txt-summary"></div>
+        <div class="word-stats" id="txt-stats"></div>
+      </div>
+      <div class="card" id="txt-translated-card" style="display:none">
+        <div class="card-title"><span class="icon">🌐</span> Translated Summary <span id="txt-lang-badge"></span></div>
+        <div class="result-box" id="txt-translated"></div>
+      </div>
+      <div class="card" id="txt-highlight-card">
+        <div class="card-title"><span class="icon">🔦</span> Key Sentences</div>
+        <div id="txt-highlights" class="highlight-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 2 — FILE
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-file" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">📄</span> Summarize Document</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">Upload a PDF, DOCX, or TXT file — we'll extract the text and summarize it.</p>
+
+      <div class="drop-zone" id="file-drop" onclick="document.getElementById('file-input').click()"
+           ondragover="event.preventDefault();this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleFileDrop(event)">
+        <div class="dz-icon">📂</div>
+        <p id="file-name">Drag & drop or click to choose a file</p>
+        <p style="font-size:.75rem;margin-top:6px;color:var(--muted)">PDF · DOCX · TXT (max 32 MB)</p>
+        <input type="file" id="file-input" accept=".pdf,.docx,.txt" onchange="handleFileSelect(event)"/>
+      </div>
+
+      <div class="controls-grid">
+        <div>
+          <label class="ctrl-label">Mode</label>
+          <select id="file-mode">
+            <option value="abstractive">Abstractive</option>
+            <option value="extractive">Extractive</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="file-model">
+            <option value="bart">BART</option>
+            <option value="t5">T5-Small</option>
+            <option value="pegasus">Pegasus</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Output Language</label>
+          <select id="file-lang">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="assamese">Assamese</option>
+            <option value="bengali">Bengali</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Max Length</label>
+          <input type="number" id="file-maxlen" value="200" min="50" max="500"/>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="file-btn" onclick="summarizeFile()">
+          <span class="btn-text">📄 Summarize File</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+    <div id="file-alert" class="alert alert-error"></div>
+    <div id="file-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📝</span> Summary</div>
+        <div class="result-box" id="file-summary"></div>
+        <div class="word-stats" id="file-stats"></div>
+      </div>
+      <div class="card" id="file-translated-card" style="display:none">
+        <div class="card-title"><span class="icon">🌐</span> Translated Summary</div>
+        <div class="result-box" id="file-translated"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">🔦</span> Key Sentences</div>
+        <div id="file-highlights" class="highlight-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 3 — URL
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-url" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">🔗</span> Summarize from URL</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">Paste any article or web page URL and we'll scrape and summarize it.</p>
+
+      <input type="url" id="url-input" placeholder="https://example.com/article"
+             style="margin-bottom:14px"/>
+
+      <div class="controls-grid">
+        <div>
+          <label class="ctrl-label">Mode</label>
+          <select id="url-mode">
+            <option value="abstractive">Abstractive</option>
+            <option value="extractive">Extractive</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="url-model">
+            <option value="bart">BART</option>
+            <option value="t5">T5-Small</option>
+            <option value="pegasus">Pegasus</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Output Language</label>
+          <select id="url-lang">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="assamese">Assamese</option>
+            <option value="bengali">Bengali</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Max Length</label>
+          <input type="number" id="url-maxlen" value="150" min="50" max="400"/>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="url-btn" onclick="summarizeURL()">
+          <span class="btn-text">🔗 Fetch & Summarize</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+    <div id="url-alert" class="alert alert-error"></div>
+    <div id="url-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📝</span> Summary</div>
+        <div class="result-box" id="url-summary"></div>
+        <div class="word-stats" id="url-stats"></div>
+      </div>
+      <div class="card" id="url-translated-card" style="display:none">
+        <div class="card-title"><span class="icon">🌐</span> Translated Summary</div>
+        <div class="result-box" id="url-translated"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">🔦</span> Key Sentences</div>
+        <div id="url-highlights" class="highlight-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 4 — MULTI-DOC
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-multi" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">📚</span> Multi-Document Summarization</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">Add 2 or more documents and get a unified summary across all of them.</p>
+
+      <div class="doc-input-list" id="doc-list">
+        <div class="doc-input-item">
+          <textarea placeholder="Document 1…"></textarea>
+          <button class="remove-doc" onclick="removeDoc(this)" style="display:none">✕</button>
+        </div>
+        <div class="doc-input-item">
+          <textarea placeholder="Document 2…"></textarea>
+          <button class="remove-doc" onclick="removeDoc(this)">✕</button>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addDoc()">+ Add Document</button>
+
+      <div class="controls-grid" style="margin-top:18px">
+        <div>
+          <label class="ctrl-label">Mode</label>
+          <select id="multi-mode">
+            <option value="abstractive">Abstractive</option>
+            <option value="extractive">Extractive</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="multi-model">
+            <option value="bart">BART</option>
+            <option value="t5">T5-Small</option>
+            <option value="pegasus">Pegasus</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Output Language</label>
+          <select id="multi-lang">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="assamese">Assamese</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Max Length</label>
+          <input type="number" id="multi-maxlen" value="200" min="50" max="500"/>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="multi-btn" onclick="summarizeMulti()">
+          <span class="btn-text">📚 Summarize All</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+    <div id="multi-alert" class="alert alert-error"></div>
+    <div id="multi-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📝</span> Unified Summary</div>
+        <div class="result-box" id="multi-summary"></div>
+        <div class="word-stats" id="multi-stats"></div>
+      </div>
+      <div class="card" id="multi-translated-card" style="display:none">
+        <div class="card-title"><span class="icon">🌐</span> Translated Summary</div>
+        <div class="result-box" id="multi-translated"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">🔦</span> Key Sentences</div>
+        <div id="multi-highlights" class="highlight-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 5 — VOICE
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-voice" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">🎙️</span> Voice Input</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:20px">Record your voice — your browser transcribes it in real time, then we summarize what you said. Works best in Chrome or Edge.</p>
+
+      <button id="voice-btn" onclick="toggleRecording()">🎙️</button>
+      <div class="voice-status" id="voice-status">Press the button to start recording</div>
+
+      <div style="margin-bottom:14px">
+        <label class="ctrl-label">Transcript Preview</label>
+        <div class="result-box" id="voice-transcript" style="min-height:60px;color:var(--muted)">
+          Your speech will appear here…
+        </div>
+      </div>
+
+      <div class="controls-grid">
+        <div>
+          <label class="ctrl-label">Mode</label>
+          <select id="voice-mode">
+            <option value="abstractive">Abstractive</option>
+            <option value="extractive">Extractive</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="voice-model">
+            <option value="bart">BART</option>
+            <option value="t5">T5-Small</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Output Language</label>
+          <select id="voice-lang">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="assamese">Assamese</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="voice-sum-btn" onclick="summarizeVoice()" disabled>
+          <span class="btn-text">✨ Summarize Speech</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+    <div id="voice-alert" class="alert alert-error"></div>
+    <div id="voice-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📝</span> Summary</div>
+        <div class="result-box" id="voice-summary"></div>
+      </div>
+      <div class="card" id="voice-translated-card" style="display:none">
+        <div class="card-title"><span class="icon">🌐</span> Translated</div>
+        <div class="result-box" id="voice-translated"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 6 — EVALUATE
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-evaluate" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> Evaluate Model</div>
+      <p style="color:var(--muted);font-size:.88rem;margin-bottom:16px">
+        Evaluate model performance against benchmarks using CNN/DailyMail or your own CSV.
+      </p>
+
+      <div class="controls-grid">
+        <div>
+          <label class="ctrl-label">Model</label>
+          <select id="eval-model">
+            <option value="bart">BART</option>
+            <option value="t5">T5-Small</option>
+            <option value="pegasus">Pegasus</option>
+          </select>
+        </div>
+        <div>
+          <label class="ctrl-label">Samples</label>
+          <input type="number" id="eval-samples" value="3" min="1" max="20"/>
+        </div>
+        <div>
+          <label class="ctrl-label">Accuracy Threshold (ROUGE-L)</label>
+          <input type="number" id="eval-threshold" value="0.3" min="0" max="1" step="0.05"/>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label class="ctrl-label">Custom CSV (optional — article, summary columns)</label>
+        <input type="file" id="eval-csv" accept=".csv"
+               style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 14px;color:var(--text);width:100%"/>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="eval-btn" onclick="runEvaluation()">
+          <span class="btn-text">📊 Run Evaluation</span>
+          <div class="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div id="eval-alert" class="alert alert-error"></div>
+
+    <div id="eval-result" style="display:none">
+      <div class="card">
+        <div class="card-title"><span class="icon">📈</span> Metrics</div>
+        <div class="metrics-grid" id="eval-metrics"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">📉</span> Benchmark Charts</div>
+        <div class="chart-grid" id="eval-charts"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="icon">🗃️</span> Evaluation Samples</div>
+        <div id="eval-samples-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TAB 7 — HISTORY
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="panel-history" class="panel">
+    <div class="card">
+      <div class="card-title"><span class="icon">🕑</span> Summary History</div>
+      <div class="btn-row" style="margin-top:0;margin-bottom:18px">
+        <button class="btn btn-secondary btn-sm" onclick="loadHistory()">🔄 Refresh</button>
+        <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑️ Clear All</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <p style="color:var(--muted);text-align:center">Loading history…</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:60px"></div>
+</div><!-- /wrapper -->
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let currentMode = 'abstractive';
+let selectedFile = null;
+let mediaRecorder = null;
+let audioChunks  = [];
+let isRecording  = false;
+let voiceBlob    = null;
+
+// ── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(name==='history') loadHistory();
+}
+
+// ── Abstractive / Extractive mode toggle ──────────────────────────────────────
+function setMode(mode, btn){
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const isExt = mode === 'extractive';
+  document.getElementById('ctrl-maxlen').style.display = isExt ? 'none' : '';
+  document.getElementById('ctrl-minlen').style.display = isExt ? 'none' : '';
+  document.getElementById('ctrl-extsent').style.display = isExt ? '' : 'none';
+}
+
+// ── Text word counter ─────────────────────────────────────────────────────────
+document.getElementById('txt-input').addEventListener('input', function(){
+  const words = this.value.trim() ? this.value.trim().split(/\s+/).length : 0;
+  document.getElementById('txt-word-in').textContent = `${words} words`;
+});
+
+function clearTextInput(){
+  document.getElementById('txt-input').value = '';
+  document.getElementById('txt-result').style.display='none';
+  document.getElementById('txt-word-in').textContent='';
+}
+
+// ── Generic helpers ───────────────────────────────────────────────────────────
+function showAlert(id, msg){
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+}
+function hideAlert(id){ document.getElementById(id).classList.remove('show'); }
+
+function setLoading(btnId, loading){
+  const btn = document.getElementById(btnId);
+  if(loading) btn.classList.add('loading');
+  else btn.classList.remove('loading');
+  btn.disabled = loading;
+}
+
+function renderHighlights(listId, items){
+  const el = document.getElementById(listId);
+  if(!items || !items.length){ el.innerHTML='<p style="color:var(--muted)">None</p>'; return; }
+  el.innerHTML = items.map(s=>`<div class="highlight-item">${escHtml(s)}</div>`).join('');
+}
+
+function escHtml(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function showSummaryResult(prefix, data){
+  document.getElementById(prefix+'-result').style.display='block';
+  document.getElementById(prefix+'-summary').textContent = data.summary || '';
+
+  const stats = document.getElementById(prefix+'-stats');
+  if(stats) stats.innerHTML =
+    `<span>⬇️ Input: <strong>${data.word_count_in||'?'}</strong> words</span>
+     <span>⬆️ Output: <strong>${data.word_count_out||'?'}</strong> words</span>
+     <span>⏱️ Time: <strong>${data.time||'?'}s</strong></span>
+     <span>⚙️ Mode: <strong>${data.mode||'?'}</strong></span>`;
+
+  const lang = (data.target_language||'english').toLowerCase();
+  const transCard = document.getElementById(prefix+'-translated-card');
+  if(transCard){
+    if(lang !== 'english' && data.translated_summary){
+      transCard.style.display='block';
+      document.getElementById(prefix+'-translated').textContent = data.translated_summary;
+      const lb = document.getElementById(prefix+'-lang-badge');
+      if(lb) lb.innerHTML = `<span class="badge badge-cyan">${lang}</span>`;
+    } else {
+      transCard.style.display='none';
+    }
+  }
+  if(data.mode) {
+    const mb = document.getElementById(prefix+'-mode-badge');
+    if(mb) mb.innerHTML = `<span class="badge badge-purple">${data.mode}</span>`;
+  }
+  renderHighlights(prefix+'-highlights', data.highlighted_sentences);
+}
+
+// ── 1. Text summarization ─────────────────────────────────────────────────────
+async function summarizeText(){
+  const text = document.getElementById('txt-input').value.trim();
+  if(!text){ showAlert('txt-alert','Please enter some text.'); return; }
+  hideAlert('txt-alert');
+  setLoading('txt-btn', true);
+
+  try {
+    const res = await fetch('/api/summarize',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        text,
+        model: document.getElementById('txt-model').value,
+        mode: currentMode,
+        max_length: parseInt(document.getElementById('txt-maxlen').value),
+        min_length: parseInt(document.getElementById('txt-minlen').value),
+        extractive_sentences: parseInt(document.getElementById('txt-extsent').value)||5,
+        target_language: document.getElementById('txt-lang').value,
+      })
+    });
+    const data = await res.json();
+    if(data.error){ showAlert('txt-alert', data.error); return; }
+    showSummaryResult('txt', data);
+  } catch(e){ showAlert('txt-alert','Request failed: '+e.message); }
+  finally{ setLoading('txt-btn', false); }
+}
+
+// ── 2. File summarization ─────────────────────────────────────────────────────
+function handleFileSelect(evt){ selectedFile = evt.target.files[0]; updateFileLabel(); }
+function handleFileDrop(evt){
+  evt.preventDefault();
+  document.getElementById('file-drop').classList.remove('dragover');
+  selectedFile = evt.dataTransfer.files[0];
+  updateFileLabel();
+}
+function updateFileLabel(){
+  if(selectedFile) document.getElementById('file-name').textContent = '📎 '+selectedFile.name;
+}
+
+async function summarizeFile(){
+  if(!selectedFile){ showAlert('file-alert','Please select a file.'); return; }
+  hideAlert('file-alert');
+  setLoading('file-btn', true);
+
+  const fd = new FormData();
+  fd.append('file', selectedFile);
+  fd.append('model', document.getElementById('file-model').value);
+  fd.append('mode', document.getElementById('file-mode').value);
+  fd.append('max_length', document.getElementById('file-maxlen').value);
+  fd.append('target_language', document.getElementById('file-lang').value);
+
+  try {
+    const res = await fetch('/api/summarize/file',{ method:'POST', body:fd });
+    const data = await res.json();
+    if(data.error){ showAlert('file-alert', data.error); return; }
+    showSummaryResult('file', data);
+  } catch(e){ showAlert('file-alert','Request failed: '+e.message); }
+  finally{ setLoading('file-btn', false); }
+}
+
+// ── 3. URL summarization ──────────────────────────────────────────────────────
+async function summarizeURL(){
+  const url = document.getElementById('url-input').value.trim();
+  if(!url){ showAlert('url-alert','Please enter a URL.'); return; }
+  hideAlert('url-alert');
+  setLoading('url-btn', true);
+
+  try {
+    const res = await fetch('/api/summarize/url',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        url,
+        model: document.getElementById('url-model').value,
+        mode: document.getElementById('url-mode').value,
+        max_length: parseInt(document.getElementById('url-maxlen').value),
+        target_language: document.getElementById('url-lang').value,
+      })
+    });
+    const data = await res.json();
+    if(data.error){ showAlert('url-alert', data.error); return; }
+    showSummaryResult('url', data);
+  } catch(e){ showAlert('url-alert','Request failed: '+e.message); }
+  finally{ setLoading('url-btn', false); }
+}
+
+// ── 4. Multi-document ─────────────────────────────────────────────────────────
+function addDoc(){
+  const list = document.getElementById('doc-list');
+  const n = list.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'doc-input-item';
+  div.innerHTML = `<textarea placeholder="Document ${n}…"></textarea>
+    <button class="remove-doc" onclick="removeDoc(this)">✕</button>`;
+  list.appendChild(div);
+}
+function removeDoc(btn){
+  const list = document.getElementById('doc-list');
+  if(list.children.length > 2){
+    btn.closest('.doc-input-item').remove();
+    // Renumber placeholders
+    Array.from(list.children).forEach((item, idx) => {
+      const ta = item.querySelector('textarea');
+      if(ta && !ta.value) ta.placeholder = `Document ${idx+1}…`;
+    });
+  }
+}
+
+async function summarizeMulti(){
+  const textareas = document.querySelectorAll('#doc-list textarea');
+  const texts = Array.from(textareas).map(t=>t.value.trim()).filter(Boolean);
+  if(texts.length < 2){ showAlert('multi-alert','Please provide at least 2 non-empty documents.'); return; }
+  hideAlert('multi-alert');
+  setLoading('multi-btn', true);
+
+  try {
+    const maxLen = parseInt(document.getElementById('multi-maxlen').value) || 200;
+    const res = await fetch('/api/summarize/multi',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        texts,
+        model: document.getElementById('multi-model').value,
+        mode: document.getElementById('multi-mode').value,
+        max_length: maxLen,
+        min_length: Math.min(60, Math.floor(maxLen * 0.3)),
+        target_language: document.getElementById('multi-lang').value,
+      })
+    });
+    const data = await res.json();
+    if(data.error){ showAlert('multi-alert', data.error); return; }
+    showSummaryResult('multi', data);
+    const stats = document.getElementById('multi-stats');
+    if(stats) stats.innerHTML += ` <span>📚 Docs: <strong>${data.num_documents}</strong></span>`;
+  } catch(e){ showAlert('multi-alert','Request failed: '+e.message); }
+  finally{ setLoading('multi-btn', false); }
+}
+
+// ── 5. Voice recording & submission ──────────────────────────────────────────
+// Uses the browser's built-in Web Speech API for real-time transcription.
+// This avoids audio format compatibility issues (webm vs wav) entirely.
+let speechRecognition = null;
+let voiceTranscriptText = '';
+
+function toggleRecording(){
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognitionAPI){
+    showAlert('voice-alert', '❌ Your browser does not support the Web Speech API. Please use Chrome or Edge.');
+    return;
+  }
+
+  if(!isRecording){
+    // Start recording
+    hideAlert('voice-alert');
+    voiceTranscriptText = '';
+    document.getElementById('voice-transcript').textContent = 'Listening…';
+    document.getElementById('voice-sum-btn').disabled = true;
+
+    speechRecognition = new SpeechRecognitionAPI();
+    speechRecognition.continuous = true;
+    speechRecognition.interimResults = true;
+    speechRecognition.lang = 'en-US';
+
+    let finalTranscript = '';
+    speechRecognition.onresult = function(event){
+      let interim = '';
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const t = event.results[i][0].transcript;
+        if(event.results[i].isFinal) finalTranscript += t + ' ';
+        else interim += t;
+      }
+      document.getElementById('voice-transcript').textContent =
+        (finalTranscript + interim).trim() || 'Listening…';
+      voiceTranscriptText = finalTranscript.trim();
+    };
+
+    speechRecognition.onerror = function(e){
+      showAlert('voice-alert', '❌ Speech recognition error: ' + e.error +
+        (e.error === 'not-allowed' ? ' — Please allow microphone access.' : ''));
+      stopRecordingUI();
+    };
+
+    speechRecognition.onend = function(){
+      // Recognition ended (either manually or due to silence)
+      if(isRecording){
+        // Restart if we're still supposed to be recording (handles auto-stop on silence)
+        try { speechRecognition.start(); } catch(ex){}
+      }
+    };
+
+    speechRecognition.start();
+    isRecording = true;
+    document.getElementById('voice-btn').textContent = '⏹️';
+    document.getElementById('voice-btn').classList.add('recording');
+    document.getElementById('voice-status').textContent = 'Listening… click to stop';
+
+  } else {
+    // Stop recording
+    if(speechRecognition) { speechRecognition.stop(); speechRecognition = null; }
+    stopRecordingUI();
+
+    const transcript = voiceTranscriptText ||
+      document.getElementById('voice-transcript').textContent.replace(/^Listening…?/, '').trim();
+
+    if(transcript && transcript.length > 5){
+      voiceTranscriptText = transcript;
+      document.getElementById('voice-transcript').textContent = '🗣️ ' + transcript;
+      document.getElementById('voice-sum-btn').disabled = false;
+      document.getElementById('voice-status').textContent = 'Recording stopped. Ready to summarize.';
+    } else {
+      document.getElementById('voice-transcript').textContent = 'No speech detected. Try again.';
+      document.getElementById('voice-status').textContent = 'Press the button to start recording';
+    }
+  }
+}
+
+function stopRecordingUI(){
+  isRecording = false;
+  document.getElementById('voice-btn').textContent = '🎙️';
+  document.getElementById('voice-btn').classList.remove('recording');
+}
+
+async function summarizeVoice(){
+  const transcript = voiceTranscriptText;
+  if(!transcript){ showAlert('voice-alert','No transcript found. Please record your voice first.'); return; }
+  hideAlert('voice-alert');
+  setLoading('voice-sum-btn', true);
+
+  try {
+    // Send transcript text directly — no audio file upload needed
+    const res = await fetch('/api/summarize/voice/transcript', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        transcript,
+        model: document.getElementById('voice-model').value,
+        mode:  document.getElementById('voice-mode').value,
+        target_language: document.getElementById('voice-lang').value,
+        max_length: 150,
+        min_length: 40,
+      })
+    });
+    const data = await res.json();
+    if(data.error){ showAlert('voice-alert', data.error); return; }
+
+    document.getElementById('voice-result').style.display='block';
+    document.getElementById('voice-summary').textContent = data.summary||'';
+    const vc = document.getElementById('voice-translated-card');
+    if(data.target_language && data.target_language!=='english' && data.translated_summary){
+      vc.style.display='block';
+      document.getElementById('voice-translated').textContent = data.translated_summary;
+    } else { vc.style.display='none'; }
+  } catch(e){ showAlert('voice-alert','Request failed: '+e.message); }
+  finally{ setLoading('voice-sum-btn', false); }
+}
+
+// ── 6. Evaluation ─────────────────────────────────────────────────────────────
+async function runEvaluation(){
+  hideAlert('eval-alert');
+  setLoading('eval-btn', true);
+
+  const fd = new FormData();
+  fd.append('model', document.getElementById('eval-model').value);
+  fd.append('samples', document.getElementById('eval-samples').value);
+  fd.append('threshold', document.getElementById('eval-threshold').value);
+  const csv = document.getElementById('eval-csv').files[0];
+  if(csv) fd.append('file', csv);
+
+  try {
+    const res = await fetch('/api/evaluate',{method:'POST', body:fd});
+    const data = await res.json();
+    if(data.error){ showAlert('eval-alert', data.error); return; }
+
+    document.getElementById('eval-result').style.display='block';
+
+    // Metrics
+    const mg = document.getElementById('eval-metrics');
+    const m = data.metrics;
+    mg.innerHTML = [
+      ['ROUGE-1', m.rouge1], ['ROUGE-2', m.rouge2],
+      ['ROUGE-L', m.rougeL], ['BLEU', m.bleu],
+      ['Accuracy', m.accuracy], ['Samples', m.samples],
+    ].map(([label, val])=>`
+      <div class="metric-card">
+        <div class="metric-val">${typeof val==='number'&&val<1?Math.round(val*100)+'%':val}</div>
+        <div class="metric-label">${label}</div>
+      </div>`).join('');
+
+    // Charts
+    const cg = document.getElementById('eval-charts');
+    cg.innerHTML = '';
+    if(data.charts){
+      Object.entries(data.charts).forEach(([k,b64])=>{
+        const img = document.createElement('img');
+        img.src = 'data:image/png;base64,'+b64;
+        img.className = 'chart-img'; img.alt = k;
+        cg.appendChild(img);
+      });
+    }
+
+    // Samples
+    const sl = document.getElementById('eval-samples-list');
+    sl.innerHTML = (data.samples||[]).map((s,i)=>`
+      <div class="sample-card">
+        <div class="sample-section">
+          <div class="sample-label">Original (truncated)</div>
+          <div class="sample-text">${escHtml(s.original||'')}</div>
+        </div>
+        <div class="sample-section">
+          <div class="sample-label">Reference</div>
+          <div class="sample-text" style="color:var(--success)">${escHtml(s.reference||'')}</div>
+        </div>
+        <div class="sample-section">
+          <div class="sample-label">Generated</div>
+          <div class="sample-text" style="color:var(--accent)">${escHtml(s.generated||'')}</div>
+        </div>
+      </div>`).join('');
+
+  } catch(e){ showAlert('eval-alert','Request failed: '+e.message); }
+  finally{ setLoading('eval-btn', false); }
+}
+
+// ── 7. History ────────────────────────────────────────────────────────────────
+async function loadHistory(){
+  const list = document.getElementById('history-list');
+  list.innerHTML = '<p style="color:var(--muted);text-align:center">Loading…</p>';
+  try {
+    const res = await fetch('/api/history');
+    const items = await res.json();
+    if(!items.length){
+      list.innerHTML='<p style="color:var(--muted);text-align:center">No history yet.</p>';
+      return;
+    }
+    list.innerHTML = items.map((item,i)=>`
+      <div class="history-item" onclick="this.classList.toggle('open')">
+        <div class="history-meta">
+          <span class="badge badge-purple">${escHtml(item.mode||'?')}</span>
+          <span class="badge badge-cyan">${escHtml(item.model||'?')}</span>
+          <span class="badge badge-green">${escHtml(item.source||'text')}</span>
+          <span class="badge" style="background:rgba(251,191,36,.15);color:var(--warn)">${escHtml(item.target_language||'english')}</span>
+          <span class="history-ts">${new Date(item.timestamp).toLocaleString()}</span>
+        </div>
+        <div class="history-snippet">${escHtml(item.input_snippet||'')}</div>
+        <div class="history-summary">
+          <strong>Summary:</strong><br>${escHtml(item.summary||'')}
+          ${item.translated_summary && item.target_language!=='english'
+            ? `<br><br><strong>Translated (${escHtml(item.target_language)}):</strong><br>${escHtml(item.translated_summary)}`
+            : ''}
+        </div>
+      </div>`).join('');
+  } catch(e){
+    list.innerHTML='<p style="color:var(--danger)">Failed to load history.</p>';
+  }
+}
+
+async function clearHistory(){
+  if(!confirm('Clear all history?')) return;
+  await fetch('/api/history',{method:'DELETE'});
+  loadHistory();
+}
+</script>
+</body>
+</html>
